@@ -20,6 +20,7 @@ public record ExplorePromptResponse(
         double rating,
         int tokens,
         String visibility,
+        String systemMessage,
         String snippet,
         List<String> variables,
         boolean featured

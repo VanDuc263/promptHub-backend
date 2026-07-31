@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 @SpringBootTest
 class PromptHubBackendApplicationTests {
@@ -19,7 +20,13 @@ class PromptHubBackendApplicationTests {
 
     @Test
     void explorePromptsCanBeLoaded() {
-        assertNotNull(promptExploreService.getPublicPrompts());
+        var prompts = promptExploreService.getPublicPrompts();
+        assertNotNull(prompts);
+        if (!prompts.isEmpty()) {
+            var detail = promptExploreService.getPublicPrompt(prompts.getFirst().id());
+            assertNotNull(detail);
+            assertFalse(detail.snippet().contains("\\n"));
+        }
     }
 
 }

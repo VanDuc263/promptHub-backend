@@ -14,6 +14,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -54,6 +56,16 @@ public class PromptExploreService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public ExplorePromptResponse getPublicPrompt(java.util.UUID promptId) {
+        Prompt prompt = promptRepository.findById(promptId)
+                .filter(item -> item.getDeletedAt() == null)
+                .filter(item -> item.getVisibility() == PromptVisibility.PUBLIC)
+                .filter(item -> item.getStatus() == PromptStatus.PUBLISHED)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Prompt not found"));
+        return toResponse(prompt);
+    }
+
     private ExplorePromptResponse toResponse(Prompt prompt) {
         List<String> tags = promptTagRepository.findByPrompt(prompt).stream()
                 .map(promptTag -> promptTag.getTag().getName())
@@ -83,7 +95,8 @@ public class PromptExploreService {
                 Math.round(rating * 10.0) / 10.0,
                 tokenLimit(version),
                 "Public",
-                version == null ? "" : version.getContent(),
+                version == null ? "" : normalizeNewlines(firstNonBlank(version.getSystemMessage(), "")),
+                version == null ? "" : normalizeNewlines(version.getContent()),
                 variableNames(version),
                 Boolean.TRUE.equals(prompt.getIsFeatured())
         );
@@ -147,6 +160,13 @@ public class PromptExploreService {
     private String firstNonBlank(String... values) {
         for (String value : values) if (value != null && !value.isBlank()) return value;
         return "";
+    }
+
+    private String normalizeNewlines(String value) {
+        if (value == null) return "";
+        return value
+                .replace("\\r\\n", "\n")
+                .replace("\\n", "\n");
     }
 
     private long value(Long value) {
