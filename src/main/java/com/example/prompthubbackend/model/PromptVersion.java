@@ -2,6 +2,7 @@ package com.example.prompthubbackend.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnTransformer;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -34,9 +35,11 @@ public class PromptVersion {
     private String systemMessage;
 
     @Column(name = "variables", nullable = false, columnDefinition = "jsonb")
+    @ColumnTransformer(write = "?::jsonb")
     private String variables;
 
     @Column(name = "model_config", nullable = false, columnDefinition = "jsonb")
+    @ColumnTransformer(write = "?::jsonb")
     private String modelConfig;
 
     @Column(name = "changelog", length = 500)
