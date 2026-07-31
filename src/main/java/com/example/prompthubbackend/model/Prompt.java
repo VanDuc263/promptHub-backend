@@ -4,6 +4,8 @@ import com.example.prompthubbackend.model.enums.PromptStatus;
 import com.example.prompthubbackend.model.enums.PromptVisibility;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -43,10 +45,12 @@ public class Prompt {
     private String description;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "visibility", nullable = false)
     private PromptVisibility visibility;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "status", nullable = false)
     private PromptStatus status;
 

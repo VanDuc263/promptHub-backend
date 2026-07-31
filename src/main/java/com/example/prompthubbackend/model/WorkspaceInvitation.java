@@ -4,6 +4,8 @@ import com.example.prompthubbackend.model.enums.InvitationStatus;
 import com.example.prompthubbackend.model.enums.WorkspaceRole;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -38,6 +40,7 @@ public class WorkspaceInvitation {
     private User inviteeUser;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "role", nullable = false)
     private WorkspaceRole role;
 
@@ -45,6 +48,7 @@ public class WorkspaceInvitation {
     private String token;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "status", nullable = false)
     private InvitationStatus status;
 

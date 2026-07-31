@@ -15,6 +15,7 @@ public class CorsConfig {
         CorsConfiguration corsConfiguration = new CorsConfiguration();
         corsConfiguration.setAllowedOriginPatterns(List.of(
                 "http://localhost:3000",
+                "http://localhost:5173",
                 "https://*.vercel.app",
                 "https://*.ngrok-free.app"
         ));

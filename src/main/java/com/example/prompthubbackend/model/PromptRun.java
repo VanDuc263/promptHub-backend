@@ -3,6 +3,8 @@ package com.example.prompthubbackend.model;
 import com.example.prompthubbackend.model.enums.RunStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -54,6 +56,7 @@ public class PromptRun {
     private String model;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "status", nullable = false)
     private RunStatus status;
 

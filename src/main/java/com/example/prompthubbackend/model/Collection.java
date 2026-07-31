@@ -3,6 +3,8 @@ package com.example.prompthubbackend.model;
 import com.example.prompthubbackend.model.enums.CollectionVisibility;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -42,6 +44,7 @@ public class Collection {
     private String coverImageUrl;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "visibility", nullable = false)
     private CollectionVisibility visibility;
 
