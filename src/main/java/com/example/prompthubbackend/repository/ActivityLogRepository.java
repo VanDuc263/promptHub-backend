@@ -13,5 +13,7 @@ import java.util.UUID;
 public interface ActivityLogRepository extends JpaRepository<ActivityLog, UUID> {
     List<ActivityLog> findByWorkspace(Workspace workspace);
 
+    List<ActivityLog> findTop5ByWorkspaceOrderByCreatedAtDesc(Workspace workspace);
+
     List<ActivityLog> findByActor(User actor);
 }

@@ -16,6 +16,8 @@ import java.util.UUID;
 public interface PromptRepository extends JpaRepository<Prompt, UUID> {
     List<Prompt> findByWorkspace(Workspace workspace);
 
+    long countByWorkspaceAndDeletedAtIsNull(Workspace workspace);
+
     List<Prompt> findByAuthor(User author);
 
     Optional<Prompt> findByWorkspaceAndSlug(Workspace workspace, String slug);
