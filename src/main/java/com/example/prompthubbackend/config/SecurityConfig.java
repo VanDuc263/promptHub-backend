@@ -33,6 +33,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/prompts/explore").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/prompts/mine").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/prompts/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/prompts/*/comments", "/api/prompts/*/reviews").permitAll()
 
                         .anyRequest().authenticated()
                 );

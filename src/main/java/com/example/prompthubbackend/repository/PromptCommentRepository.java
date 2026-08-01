@@ -13,6 +13,8 @@ import java.util.UUID;
 public interface PromptCommentRepository extends JpaRepository<PromptComment, UUID> {
     List<PromptComment> findByPrompt(Prompt prompt);
 
+    List<PromptComment> findByPromptAndDeletedAtIsNullOrderByCreatedAtAsc(Prompt prompt);
+
     List<PromptComment> findByUser(User user);
 
     List<PromptComment> findByParent(PromptComment parent);

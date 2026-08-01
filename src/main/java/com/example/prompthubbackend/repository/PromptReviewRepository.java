@@ -14,6 +14,8 @@ import java.util.UUID;
 public interface PromptReviewRepository extends JpaRepository<PromptReview, UUID> {
     List<PromptReview> findByPrompt(Prompt prompt);
 
+    List<PromptReview> findByPromptOrderByCreatedAtDesc(Prompt prompt);
+
     List<PromptReview> findByUser(User user);
 
     Optional<PromptReview> findByPromptAndUser(Prompt prompt, User user);
