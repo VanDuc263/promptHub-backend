@@ -26,4 +26,6 @@ public interface CollectionRepository extends JpaRepository<Collection, UUID> {
     boolean existsByOwnerAndSlug(User owner, String slug);
 
     List<Collection> findByVisibility(CollectionVisibility visibility);
+
+    long countByOwnerAndVisibilityAndDeletedAtIsNull(User owner, CollectionVisibility visibility);
 }

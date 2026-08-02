@@ -20,6 +20,12 @@ public interface PromptRepository extends JpaRepository<Prompt, UUID> {
 
     List<Prompt> findByAuthor(User author);
 
+    List<Prompt> findByAuthorAndVisibilityAndStatusAndDeletedAtIsNull(
+            User author,
+            PromptVisibility visibility,
+            PromptStatus status
+    );
+
     Optional<Prompt> findByWorkspaceAndSlug(Workspace workspace, String slug);
 
     List<Prompt> findByVisibilityAndStatus(PromptVisibility visibility, PromptStatus status);
