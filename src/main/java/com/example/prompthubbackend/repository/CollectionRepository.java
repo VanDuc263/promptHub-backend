@@ -15,11 +15,15 @@ import java.util.UUID;
 public interface CollectionRepository extends JpaRepository<Collection, UUID> {
     List<Collection> findByOwner(User owner);
 
+    List<Collection> findByOwnerAndDeletedAtIsNullOrderByUpdatedAtDesc(User owner);
+
     List<Collection> findByWorkspace(Workspace workspace);
 
     long countByWorkspaceAndDeletedAtIsNull(Workspace workspace);
 
     Optional<Collection> findByOwnerAndSlug(User owner, String slug);
+
+    boolean existsByOwnerAndSlug(User owner, String slug);
 
     List<Collection> findByVisibility(CollectionVisibility visibility);
 }
