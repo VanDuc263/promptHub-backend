@@ -13,6 +13,8 @@ import java.util.Optional;
 public interface CollectionPromptRepository extends JpaRepository<CollectionPrompt, CollectionPrompt.CollectionPromptId> {
     List<CollectionPrompt> findByCollection(Collection collection);
 
+    List<CollectionPrompt> findByCollectionOrderByPositionAscCreatedAtAsc(Collection collection);
+
     List<CollectionPrompt> findByPrompt(Prompt prompt);
 
     Optional<CollectionPrompt> findByCollectionAndPrompt(Collection collection, Prompt prompt);
