@@ -1,6 +1,8 @@
 package com.example.prompthubbackend.service;
 
 import com.example.prompthubbackend.dto.response.WorkspaceDetailResponse;
+import com.example.prompthubbackend.dto.response.WorkspaceCollectionResponse;
+import com.example.prompthubbackend.dto.response.WorkspaceMemberResponse;
 import com.example.prompthubbackend.dto.response.WorkspaceSummaryResponse;
 import com.example.prompthubbackend.model.ActivityLog;
 import com.example.prompthubbackend.model.User;
@@ -81,6 +83,41 @@ public class WorkspaceService {
                 activities);
     }
 
+    @Transactional(readOnly = true)
+    public List<WorkspaceMemberResponse> getMembers(String username, UUID workspaceId) {
+        User currentUser = requireUser(username);
+        Workspace workspace = requireWorkspace(workspaceId);
+        workspaceMemberRepository.findByWorkspaceAndUser(workspace, currentUser)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Workspace not found"));
+
+        return workspaceMemberRepository.findByWorkspace(workspace).stream()
+                .sorted(Comparator
+                        .comparingInt((WorkspaceMember member) -> member.getRole().ordinal())
+                        .thenComparing(member -> displayName(member.getUser()), String.CASE_INSENSITIVE_ORDER))
+                .map(member -> toMember(member, currentUser))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<WorkspaceCollectionResponse> getCollections(String username, UUID workspaceId) {
+        User currentUser = requireUser(username);
+        Workspace workspace = requireWorkspace(workspaceId);
+        workspaceMemberRepository.findByWorkspaceAndUser(workspace, currentUser)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Workspace not found"));
+
+        return collectionRepository.findByWorkspaceAndDeletedAtIsNullOrderByUpdatedAtDesc(workspace).stream()
+                .map(collection -> {
+                    String ownerName = displayName(collection.getOwner());
+                    return new WorkspaceCollectionResponse(
+                            collection.getId(), collection.getName(),
+                            collection.getDescription() == null || collection.getDescription().isBlank()
+                                    ? "No description yet." : collection.getDescription(),
+                            collection.getCoverImageUrl(), display(collection.getVisibility().name()),
+                            collection.getPromptCount(), initials(ownerName), collection.getUpdatedAt());
+                })
+                .toList();
+    }
+
     private WorkspaceSummaryResponse toSummary(WorkspaceMember membership) {
         Workspace workspace = membership.getWorkspace();
         return new WorkspaceSummaryResponse(
@@ -99,6 +136,14 @@ public class WorkspaceService {
                 activity.getCreatedAt(), actor != null && actor.getId().equals(currentUser.getId()));
     }
 
+    private WorkspaceMemberResponse toMember(WorkspaceMember membership, User currentUser) {
+        User user = membership.getUser();
+        return new WorkspaceMemberResponse(
+                membership.getId(), user.getId(), displayName(user), user.getUsername(), user.getEmail(),
+                user.getAvatarUrl(), display(membership.getRole().name()), membership.getJoinedAt(),
+                user.getLastLoginAt(), user.getId().equals(currentUser.getId()));
+    }
+
     private Workspace requireWorkspace(UUID workspaceId) {
         return workspaceRepository.findById(workspaceId)
                 .filter(workspace -> workspace.getDeletedAt() == null)
@@ -112,6 +157,12 @@ public class WorkspaceService {
 
     private String displayName(User user) {
         return user.getDisplayName() == null || user.getDisplayName().isBlank() ? user.getUsername() : user.getDisplayName();
+    }
+
+    private String initials(String name) {
+        String[] parts = name.trim().split("\\s+");
+        return (parts[0].substring(0, 1) + (parts.length > 1 ? parts[parts.length - 1].substring(0, 1) : ""))
+                .toUpperCase(Locale.ROOT);
     }
 
     private String display(String value) {

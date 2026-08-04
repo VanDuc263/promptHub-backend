@@ -1,6 +1,8 @@
 package com.example.prompthubbackend.controller;
 
 import com.example.prompthubbackend.dto.response.WorkspaceDetailResponse;
+import com.example.prompthubbackend.dto.response.WorkspaceCollectionResponse;
+import com.example.prompthubbackend.dto.response.WorkspaceMemberResponse;
 import com.example.prompthubbackend.dto.response.WorkspaceSummaryResponse;
 import com.example.prompthubbackend.service.WorkspaceService;
 import org.springframework.http.ResponseEntity;
@@ -31,5 +33,17 @@ public class WorkspaceController {
     public ResponseEntity<WorkspaceDetailResponse> detail(@PathVariable UUID workspaceId,
                                                           Authentication authentication) {
         return ResponseEntity.ok(workspaceService.getWorkspace(authentication.getName(), workspaceId));
+    }
+
+    @GetMapping("/{workspaceId}/members")
+    public ResponseEntity<List<WorkspaceMemberResponse>> members(@PathVariable UUID workspaceId,
+                                                                 Authentication authentication) {
+        return ResponseEntity.ok(workspaceService.getMembers(authentication.getName(), workspaceId));
+    }
+
+    @GetMapping("/{workspaceId}/collections")
+    public ResponseEntity<List<WorkspaceCollectionResponse>> collections(@PathVariable UUID workspaceId,
+                                                                         Authentication authentication) {
+        return ResponseEntity.ok(workspaceService.getCollections(authentication.getName(), workspaceId));
     }
 }

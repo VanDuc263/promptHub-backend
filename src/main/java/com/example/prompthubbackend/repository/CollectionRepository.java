@@ -19,6 +19,8 @@ public interface CollectionRepository extends JpaRepository<Collection, UUID> {
 
     List<Collection> findByWorkspace(Workspace workspace);
 
+    List<Collection> findByWorkspaceAndDeletedAtIsNullOrderByUpdatedAtDesc(Workspace workspace);
+
     long countByWorkspaceAndDeletedAtIsNull(Workspace workspace);
 
     Optional<Collection> findByOwnerAndSlug(User owner, String slug);
