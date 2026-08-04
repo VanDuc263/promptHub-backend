@@ -15,5 +15,7 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, UUID> 
 
     List<ActivityLog> findTop5ByWorkspaceOrderByCreatedAtDesc(Workspace workspace);
 
+    List<ActivityLog> findTop100ByWorkspaceOrderByCreatedAtDesc(Workspace workspace);
+
     List<ActivityLog> findByActor(User actor);
 }

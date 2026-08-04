@@ -27,7 +27,9 @@ public record WorkspaceDetailResponse(
             String entityType,
             String entityName,
             OffsetDateTime createdAt,
-            boolean mine
+            boolean mine,
+            String oldValues,
+            String newValues
     ) {
     }
 }

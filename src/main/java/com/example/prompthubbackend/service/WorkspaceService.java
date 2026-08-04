@@ -118,6 +118,18 @@ public class WorkspaceService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<WorkspaceDetailResponse.Activity> getActivities(String username, UUID workspaceId) {
+        User currentUser = requireUser(username);
+        Workspace workspace = requireWorkspace(workspaceId);
+        workspaceMemberRepository.findByWorkspaceAndUser(workspace, currentUser)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Workspace not found"));
+
+        return activityLogRepository.findTop100ByWorkspaceOrderByCreatedAtDesc(workspace).stream()
+                .map(activity -> toActivity(activity, currentUser))
+                .toList();
+    }
+
     private WorkspaceSummaryResponse toSummary(WorkspaceMember membership) {
         Workspace workspace = membership.getWorkspace();
         return new WorkspaceSummaryResponse(
@@ -132,8 +144,9 @@ public class WorkspaceService {
         User actor = activity.getActor();
         return new WorkspaceDetailResponse.Activity(
                 activity.getId(), actor == null ? "PromptHub" : displayName(actor),
-                display(activity.getAction()), activity.getEntityType(), activity.getEntityName(),
-                activity.getCreatedAt(), actor != null && actor.getId().equals(currentUser.getId()));
+                activityAction(activity.getAction()), activity.getEntityType(), activity.getEntityName(),
+                activity.getCreatedAt(), actor != null && actor.getId().equals(currentUser.getId()),
+                activity.getOldValues(), activity.getNewValues());
     }
 
     private WorkspaceMemberResponse toMember(WorkspaceMember membership, User currentUser) {
@@ -163,6 +176,22 @@ public class WorkspaceService {
         String[] parts = name.trim().split("\\s+");
         return (parts[0].substring(0, 1) + (parts.length > 1 ? parts[parts.length - 1].substring(0, 1) : ""))
                 .toUpperCase(Locale.ROOT);
+    }
+
+    private String activityAction(String action) {
+        return switch (action.toUpperCase(Locale.ROOT)) {
+            case "PROMPT_CREATED" -> "Created";
+            case "PROMPT_PUBLISHED" -> "Published";
+            case "PROMPT_UPDATED" -> "Updated";
+            case "MEMBER_INVITED" -> "Invited";
+            case "MEMBER_JOINED" -> "Added";
+            case "MEMBER_ROLE_CHANGED" -> "Changed the role of";
+            case "COLLECTION_CREATED" -> "Created collection";
+            case "COLLECTION_UPDATED" -> "Updated collection";
+            case "COMMENT_CREATED" -> "Commented on";
+            case "VERSION_RESTORED" -> "Restored a version of";
+            default -> display(action);
+        };
     }
 
     private String display(String value) {

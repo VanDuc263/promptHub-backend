@@ -46,4 +46,10 @@ public class WorkspaceController {
                                                                          Authentication authentication) {
         return ResponseEntity.ok(workspaceService.getCollections(authentication.getName(), workspaceId));
     }
+
+    @GetMapping("/{workspaceId}/activities")
+    public ResponseEntity<List<WorkspaceDetailResponse.Activity>> activities(@PathVariable UUID workspaceId,
+                                                                             Authentication authentication) {
+        return ResponseEntity.ok(workspaceService.getActivities(authentication.getName(), workspaceId));
+    }
 }
