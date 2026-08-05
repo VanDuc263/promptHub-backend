@@ -2,7 +2,11 @@ package com.example.prompthubbackend.controller;
 
 import com.example.prompthubbackend.dto.request.AddCollectionPromptsRequest;
 import com.example.prompthubbackend.dto.request.CreateCollectionRequest;
+import com.example.prompthubbackend.dto.request.InviteCollectionMemberRequest;
+import com.example.prompthubbackend.dto.request.AcceptCollectionInvitationRequest;
 import com.example.prompthubbackend.dto.response.CollectionResponse;
+import com.example.prompthubbackend.dto.response.CollectionInvitationResponse;
+import com.example.prompthubbackend.dto.response.CollectionMemberResponse;
 import com.example.prompthubbackend.service.CollectionService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -32,12 +36,46 @@ public class CollectionController {
         return ResponseEntity.ok(collectionService.getMine(authentication.getName()));
     }
 
+    @GetMapping("/public")
+    public ResponseEntity<List<CollectionResponse>> publicCollections() {
+        return ResponseEntity.ok(collectionService.getPublic());
+    }
+
+    @GetMapping("/public/{collectionId}")
+    public ResponseEntity<CollectionResponse> publicCollection(@PathVariable UUID collectionId) {
+        return ResponseEntity.ok(collectionService.getPublic(collectionId));
+    }
+
     @PostMapping
     public ResponseEntity<CollectionResponse> create(
             @Valid @RequestBody CreateCollectionRequest request,
             Authentication authentication
     ) {
         return ResponseEntity.status(201).body(collectionService.create(authentication.getName(), request));
+    }
+
+    @PostMapping("/{collectionId}/invitations")
+    public ResponseEntity<CollectionInvitationResponse> invite(
+            @PathVariable UUID collectionId,
+            @Valid @RequestBody InviteCollectionMemberRequest request,
+            Authentication authentication
+    ) {
+        return ResponseEntity.status(201).body(collectionService.invite(authentication.getName(), collectionId, request));
+    }
+
+    @GetMapping("/{collectionId}/members")
+    public ResponseEntity<List<CollectionMemberResponse>> members(
+            @PathVariable UUID collectionId,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(collectionService.getMembers(authentication.getName(), collectionId));
+    }
+
+    @PostMapping("/invitations/accept")
+    public ResponseEntity<CollectionInvitationResponse> accept(
+            @Valid @RequestBody AcceptCollectionInvitationRequest request
+    ) {
+        return ResponseEntity.ok(collectionService.acceptInvitation(request.token()));
     }
 
     @PostMapping("/{collectionId}/prompts")

@@ -29,5 +29,7 @@ public interface CollectionRepository extends JpaRepository<Collection, UUID> {
 
     List<Collection> findByVisibility(CollectionVisibility visibility);
 
+    List<Collection> findByVisibilityAndDeletedAtIsNullOrderByUpdatedAtDesc(CollectionVisibility visibility);
+
     long countByOwnerAndVisibilityAndDeletedAtIsNull(User owner, CollectionVisibility visibility);
 }

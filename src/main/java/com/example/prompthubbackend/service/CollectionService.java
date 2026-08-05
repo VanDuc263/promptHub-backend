@@ -1,21 +1,31 @@
 package com.example.prompthubbackend.service;
 
 import com.example.prompthubbackend.dto.request.CreateCollectionRequest;
+import com.example.prompthubbackend.dto.request.InviteCollectionMemberRequest;
 import com.example.prompthubbackend.dto.response.CollectionResponse;
+import com.example.prompthubbackend.dto.response.CollectionInvitationResponse;
+import com.example.prompthubbackend.dto.response.CollectionMemberResponse;
 import com.example.prompthubbackend.model.Collection;
+import com.example.prompthubbackend.model.CollectionInvitation;
+import com.example.prompthubbackend.model.CollectionMember;
 import com.example.prompthubbackend.model.CollectionPrompt;
 import com.example.prompthubbackend.model.Prompt;
 import com.example.prompthubbackend.model.User;
 import com.example.prompthubbackend.model.enums.CollectionVisibility;
+import com.example.prompthubbackend.model.enums.InvitationStatus;
 import com.example.prompthubbackend.model.enums.PromptStatus;
 import com.example.prompthubbackend.model.enums.PromptVisibility;
 import com.example.prompthubbackend.repository.CollectionPromptRepository;
+import com.example.prompthubbackend.repository.CollectionInvitationRepository;
+import com.example.prompthubbackend.repository.CollectionMemberRepository;
 import com.example.prompthubbackend.repository.CollectionRepository;
 import com.example.prompthubbackend.repository.PromptRepository;
 import com.example.prompthubbackend.repository.UserRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.HtmlUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.text.Normalizer;
@@ -33,26 +43,137 @@ public class CollectionService {
     private final CollectionPromptRepository collectionPromptRepository;
     private final UserRepository userRepository;
     private final PromptRepository promptRepository;
+    private final CollectionInvitationRepository collectionInvitationRepository;
+    private final CollectionMemberRepository collectionMemberRepository;
+    private final MailService mailService;
+
+    @Value("${app.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
 
     public CollectionService(
             CollectionRepository collectionRepository,
             CollectionPromptRepository collectionPromptRepository,
             UserRepository userRepository,
-            PromptRepository promptRepository
+            PromptRepository promptRepository,
+            CollectionInvitationRepository collectionInvitationRepository,
+            CollectionMemberRepository collectionMemberRepository,
+            MailService mailService
     ) {
         this.collectionRepository = collectionRepository;
         this.collectionPromptRepository = collectionPromptRepository;
         this.userRepository = userRepository;
         this.promptRepository = promptRepository;
+        this.collectionInvitationRepository = collectionInvitationRepository;
+        this.collectionMemberRepository = collectionMemberRepository;
+        this.mailService = mailService;
     }
 
     @Transactional(readOnly = true)
     public List<CollectionResponse> getMine(String username) {
         User owner = findUser(username);
-        return collectionRepository.findByOwnerAndDeletedAtIsNullOrderByUpdatedAtDesc(owner)
-                .stream()
+        java.util.LinkedHashMap<UUID, Collection> accessible = new java.util.LinkedHashMap<>();
+        collectionRepository.findByOwnerAndDeletedAtIsNullOrderByUpdatedAtDesc(owner)
+                .forEach(collection -> accessible.put(collection.getId(), collection));
+        collectionMemberRepository.findByUserOrderByJoinedAtDesc(owner).stream()
+                .map(CollectionMember::getCollection)
+                .filter(collection -> collection.getDeletedAt() == null)
+                .forEach(collection -> accessible.putIfAbsent(collection.getId(), collection));
+        return accessible.values().stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Transactional
+    public CollectionInvitationResponse invite(String username, UUID collectionId, InviteCollectionMemberRequest request) {
+        User inviter = findUser(username);
+        Collection collection = findOwnedCollection(collectionId, inviter);
+        String email = request.email().trim().toLowerCase(Locale.ROOT);
+        User invitee = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No PromptHub account uses this email"));
+        if (Objects.equals(inviter.getId(), invitee.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The collection owner is already a member");
+        }
+        if (collectionMemberRepository.existsByCollectionAndUser(collection, invitee)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This user has already joined the collection");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        String token = UUID.randomUUID().toString() + UUID.randomUUID();
+        CollectionInvitation invitation = collectionInvitationRepository.save(CollectionInvitation.builder()
+                .collection(collection).inviter(inviter).inviteeEmail(email).inviteeUser(invitee)
+                .token(token).status(InvitationStatus.PENDING).createdAt(now).expiresAt(now.plusSeconds(60)).build());
+        String joinUrl = frontendUrl.replaceAll("/$", "") + "/collections/join?token=" + token;
+        String safeCollection = HtmlUtils.htmlEscape(collection.getName());
+        String safeInviter = HtmlUtils.htmlEscape(firstNonBlank(inviter.getDisplayName(), inviter.getUsername()));
+        mailService.sendHtmlMail(email, "Join " + collection.getName() + " on PromptHub", """
+                <div style="font-family:Arial,sans-serif;color:#111827;line-height:1.6">
+                  <h2>You’re invited to join %s</h2>
+                  <p>%s invited you to collaborate on this PromptHub collection.</p>
+                  <p><a href="%s" style="display:inline-block;padding:12px 18px;background:#10b981;color:#07120b;text-decoration:none;border-radius:8px;font-weight:700">Join collection</a></p>
+                  <p style="color:#6b7280;font-size:13px">This one-time link expires in 60 seconds.</p>
+                </div>
+                """.formatted(safeCollection, safeInviter, HtmlUtils.htmlEscape(joinUrl)));
+        return new CollectionInvitationResponse(collection.getId(), collection.getName(), email, invitation.getExpiresAt());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CollectionMemberResponse> getMembers(String username, UUID collectionId) {
+        User currentUser = findUser(username);
+        Collection collection = collectionRepository.findById(collectionId)
+                .filter(item -> item.getDeletedAt() == null)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Collection not found"));
+        boolean owner = Objects.equals(collection.getOwner().getId(), currentUser.getId());
+        if (!owner && !collectionMemberRepository.existsByCollectionAndUser(collection, currentUser)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to collection members");
+        }
+        java.util.ArrayList<CollectionMemberResponse> members = new java.util.ArrayList<>();
+        User collectionOwner = collection.getOwner();
+        members.add(memberResponse(collectionOwner, "Owner", collection.getCreatedAt(), currentUser));
+        collectionMemberRepository.findByCollectionOrderByJoinedAtAsc(collection).forEach(member ->
+                members.add(memberResponse(member.getUser(), "Member", member.getJoinedAt(), currentUser)));
+        return members;
+    }
+
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public CollectionInvitationResponse acceptInvitation(String token) {
+        CollectionInvitation invitation = collectionInvitationRepository.findByToken(token)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invitation link is invalid"));
+        OffsetDateTime now = OffsetDateTime.now();
+        if (invitation.getStatus() != InvitationStatus.PENDING) {
+            throw new ResponseStatusException(HttpStatus.GONE, "Invitation link has already been used");
+        }
+        if (!now.isBefore(invitation.getExpiresAt())) {
+            invitation.setStatus(InvitationStatus.EXPIRED);
+            collectionInvitationRepository.save(invitation);
+            throw new ResponseStatusException(HttpStatus.GONE, "Invitation link expired after 60 seconds");
+        }
+        Collection collection = invitation.getCollection();
+        if (collection.getDeletedAt() != null) throw new ResponseStatusException(HttpStatus.GONE, "Collection is no longer available");
+        if (!collectionMemberRepository.existsByCollectionAndUser(collection, invitation.getInviteeUser())) {
+            collectionMemberRepository.save(CollectionMember.builder().collection(collection)
+                    .user(invitation.getInviteeUser()).invitedBy(invitation.getInviter()).joinedAt(now).build());
+        }
+        invitation.setStatus(InvitationStatus.ACCEPTED);
+        invitation.setAcceptedAt(now);
+        collectionInvitationRepository.save(invitation);
+        return new CollectionInvitationResponse(collection.getId(), collection.getName(), invitation.getInviteeEmail(), invitation.getExpiresAt());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CollectionResponse> getPublic() {
+        return collectionRepository
+                .findByVisibilityAndDeletedAtIsNullOrderByUpdatedAtDesc(CollectionVisibility.PUBLIC)
+                .stream()
+                .map(this::toPublicResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public CollectionResponse getPublic(UUID collectionId) {
+        Collection collection = collectionRepository.findById(collectionId)
+                .filter(item -> item.getDeletedAt() == null && item.getVisibility() == CollectionVisibility.PUBLIC)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Public collection not found"));
+        return toPublicResponse(collection);
     }
 
     @Transactional
@@ -161,9 +282,19 @@ public class CollectionService {
     }
 
     private CollectionResponse toResponse(Collection collection) {
+        return toResponse(collection, false);
+    }
+
+    private CollectionResponse toPublicResponse(Collection collection) {
+        return toResponse(collection, true);
+    }
+
+    private CollectionResponse toResponse(Collection collection, boolean publicPromptsOnly) {
         String ownerName = firstNonBlank(collection.getOwner().getDisplayName(), collection.getOwner().getUsername());
         List<java.util.UUID> promptIds = collectionPromptRepository.findByCollectionOrderByPositionAscCreatedAtAsc(collection).stream()
-                .map(item -> item.getPrompt().getId())
+                .map(CollectionPrompt::getPrompt)
+                .filter(prompt -> !publicPromptsOnly || isPubliclyDiscoverable(prompt))
+                .map(Prompt::getId)
                 .toList();
         return new CollectionResponse(
                 collection.getId(),
@@ -179,6 +310,18 @@ public class CollectionService {
                 collection.getCreatedAt(),
                 collection.getUpdatedAt()
         );
+    }
+
+    private boolean isPubliclyDiscoverable(Prompt prompt) {
+        return prompt.getDeletedAt() == null
+                && prompt.getStatus() == PromptStatus.PUBLISHED
+                && prompt.getVisibility() == PromptVisibility.PUBLIC;
+    }
+
+    private CollectionMemberResponse memberResponse(User user, String role, OffsetDateTime joinedAt, User currentUser) {
+        String name = firstNonBlank(user.getDisplayName(), user.getUsername());
+        return new CollectionMemberResponse(user.getId(), name, initials(name), user.getEmail(), role,
+                joinedAt, user.getLastLoginAt(), Objects.equals(user.getId(), currentUser.getId()));
     }
 
     private String visibilityLabel(CollectionVisibility visibility) {
