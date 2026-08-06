@@ -2,6 +2,7 @@ package com.example.prompthubbackend.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnTransformer;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -41,9 +42,11 @@ public class ActivityLog {
     private String entityName;
 
     @Column(name = "old_values", columnDefinition = "jsonb")
+    @ColumnTransformer(write = "?::jsonb")
     private String oldValues;
 
     @Column(name = "new_values", columnDefinition = "jsonb")
+    @ColumnTransformer(write = "?::jsonb")
     private String newValues;
 
     @Column(name = "ip_hash", length = 255)

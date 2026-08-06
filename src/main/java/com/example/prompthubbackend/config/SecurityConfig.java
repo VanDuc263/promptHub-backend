@@ -35,6 +35,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/collections/public").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/collections/public/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/collections/invitations/accept").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/workspaces/invitations/accept").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/profiles/me").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/profiles/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/prompts/mine").authenticated()

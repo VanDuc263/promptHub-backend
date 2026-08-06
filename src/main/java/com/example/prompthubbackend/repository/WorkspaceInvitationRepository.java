@@ -14,6 +14,11 @@ import java.util.UUID;
 public interface WorkspaceInvitationRepository extends JpaRepository<WorkspaceInvitation, UUID> {
     List<WorkspaceInvitation> findByWorkspace(Workspace workspace);
 
+    List<WorkspaceInvitation> findByWorkspaceAndStatusOrderByCreatedAtDesc(Workspace workspace, InvitationStatus status);
+
+    Optional<WorkspaceInvitation> findByWorkspaceAndInviteeEmailIgnoreCaseAndStatus(
+            Workspace workspace, String inviteeEmail, InvitationStatus status);
+
     Optional<WorkspaceInvitation> findByToken(String token);
 
     List<WorkspaceInvitation> findByStatus(InvitationStatus status);
