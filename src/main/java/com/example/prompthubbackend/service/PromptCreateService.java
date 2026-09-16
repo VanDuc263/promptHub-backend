@@ -75,6 +75,9 @@ public class PromptCreateService {
                 .shortDescription(blankToNull(request.description())).description(blankToNull(request.description()))
                 .visibility(parseVisibility(request.visibility())).status(status)
                 .recommendedModel(request.model().trim()).language(request.language().trim())
+                .promptType(parsePromptType(request.type()))
+                .inputPreviewUrl(blankToNull(request.inputPreviewUrl()))
+                .outputPreviewUrl(blankToNull(request.outputPreviewUrl()))
                 .viewCount(0L).runCount(0L).favoriteCount(0L).forkCount(0L).isFeatured(false)
                 .publishedAt(request.publish() ? now : null).createdAt(now).updatedAt(now)
                 .build();
@@ -115,7 +118,8 @@ public class PromptCreateService {
                 prompt.getId(), prompt.getTitle(), blankToEmpty(prompt.getShortDescription()), categoryFor(tags),
                 visibilityLabel(prompt.getVisibility()), prompt.getRecommendedModel(), prompt.getLanguage(), tags,
                 version.getContent(), blankToEmpty(version.getSystemMessage()), readVariables(version.getVariables()),
-                blankToEmpty(version.getChangelog()), prompt.getStatus().name()
+                blankToEmpty(version.getChangelog()), prompt.getStatus().name(), prompt.getPromptType(),
+                blankToEmpty(prompt.getInputPreviewUrl()), blankToEmpty(prompt.getOutputPreviewUrl())
         );
     }
 
@@ -134,6 +138,9 @@ public class PromptCreateService {
         prompt.setStatus(status);
         prompt.setRecommendedModel(request.model().trim());
         prompt.setLanguage(request.language().trim());
+        prompt.setPromptType(parsePromptType(request.type()));
+        prompt.setInputPreviewUrl(blankToNull(request.inputPreviewUrl()));
+        prompt.setOutputPreviewUrl(blankToNull(request.outputPreviewUrl()));
         prompt.setPublishedAt(status == PromptStatus.PUBLISHED ? Objects.requireNonNullElse(prompt.getPublishedAt(), now) : null);
         prompt.setUpdatedAt(now);
 
@@ -225,6 +232,7 @@ public class PromptCreateService {
         if (joined.contains("development") || joined.contains("java") || joined.contains("code")) return "Programming";
         if (joined.contains("marketing")) return "Marketing";
         if (joined.contains("writing") || joined.contains("english")) return "English";
+        if (joined.contains("image") || joined.contains("visual") || joined.contains("photo")) return "Image Generation";
         return "Other";
     }
 
@@ -259,6 +267,14 @@ public class PromptCreateService {
     private PromptVisibility parseVisibility(String value) {
         try { return PromptVisibility.valueOf(value.trim().toUpperCase(Locale.ROOT)); }
         catch (IllegalArgumentException exception) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid visibility"); }
+    }
+
+    private String parsePromptType(String value) {
+        String type = value == null || value.isBlank() ? "text" : value.trim().toLowerCase(Locale.ROOT);
+        if (!type.equals("text") && !type.equals("image")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Prompt type must be text or image");
+        }
+        return type;
     }
 
     private String toJson(Object value) {

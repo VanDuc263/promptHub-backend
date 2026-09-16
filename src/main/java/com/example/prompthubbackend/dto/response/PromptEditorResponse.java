@@ -18,6 +18,9 @@ public record PromptEditorResponse(
         String systemMessage,
         List<CreatePromptRequest.PromptVariableRequest> variables,
         String notes,
-        String status
+        String status,
+        String type,
+        String inputPreviewUrl,
+        String outputPreviewUrl
 ) {
 }

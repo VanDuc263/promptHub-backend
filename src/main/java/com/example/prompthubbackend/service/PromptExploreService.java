@@ -98,7 +98,10 @@ public class PromptExploreService {
                 version == null ? "" : normalizeNewlines(firstNonBlank(version.getSystemMessage(), "")),
                 version == null ? "" : normalizeNewlines(version.getContent()),
                 variableNames(version),
-                Boolean.TRUE.equals(prompt.getIsFeatured())
+                Boolean.TRUE.equals(prompt.getIsFeatured()),
+                prompt.getPromptType() == null ? "text" : prompt.getPromptType(),
+                prompt.getInputPreviewUrl(),
+                prompt.getOutputPreviewUrl()
         );
     }
 
@@ -136,6 +139,7 @@ public class PromptExploreService {
         if (joined.contains("design")) return "Productivity";
         if (joined.contains("education")) return "Education";
         if (joined.contains("business")) return "Business";
+        if (joined.contains("image") || joined.contains("visual") || joined.contains("photo")) return "Image Generation";
         return "Prompt Engineering";
     }
 

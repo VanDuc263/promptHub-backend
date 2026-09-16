@@ -23,6 +23,9 @@ public record ExplorePromptResponse(
         String systemMessage,
         String snippet,
         List<String> variables,
-        boolean featured
+        boolean featured,
+        String type,
+        String inputPreviewUrl,
+        String outputPreviewUrl
 ) {
 }

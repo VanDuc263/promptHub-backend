@@ -60,6 +60,16 @@ public class Prompt {
     @Column(name = "cover_image_url")
     private String coverImageUrl;
 
+    @Builder.Default
+    @Column(name = "prompt_type", nullable = false, length = 20)
+    private String promptType = "text";
+
+    @Column(name = "input_preview_url", length = 2048)
+    private String inputPreviewUrl;
+
+    @Column(name = "output_preview_url", length = 2048)
+    private String outputPreviewUrl;
+
     @Column(name = "icon", length = 100)
     private String icon;
 

@@ -17,7 +17,10 @@ public record CreatePromptRequest(
         String systemMessage,
         @Valid List<PromptVariableRequest> variables,
         @Size(max = 500) String notes,
-        boolean publish
+        boolean publish,
+        @Size(max = 20) String type,
+        @Size(max = 2048) String inputPreviewUrl,
+        @Size(max = 2048) String outputPreviewUrl
 ) {
     public record PromptVariableRequest(
             @NotBlank @Size(max = 100) String name,
