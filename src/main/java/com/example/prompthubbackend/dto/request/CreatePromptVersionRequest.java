@@ -1,0 +1,8 @@
+package com.example.prompthubbackend.dto.request;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record CreatePromptVersionRequest(
+        @NotBlank @Size(max = 500) String changelog
+) {}

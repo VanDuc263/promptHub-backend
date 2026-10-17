@@ -3,9 +3,11 @@ package com.example.prompthubbackend.controller;
 import com.example.prompthubbackend.dto.response.ExplorePromptResponse;
 import com.example.prompthubbackend.dto.response.MyPromptResponse;
 import com.example.prompthubbackend.dto.request.CreatePromptRequest;
+import com.example.prompthubbackend.dto.request.CreatePromptVersionRequest;
 import com.example.prompthubbackend.dto.request.UpdatePromptVisibilityRequest;
 import com.example.prompthubbackend.dto.response.CreatePromptResponse;
 import com.example.prompthubbackend.dto.response.PromptEditorResponse;
+import com.example.prompthubbackend.dto.response.PromptVersionResponse;
 import com.example.prompthubbackend.service.PromptExploreService;
 import com.example.prompthubbackend.service.PromptLibraryService;
 import com.example.prompthubbackend.service.PromptCreateService;
@@ -45,6 +47,20 @@ public class PromptController {
     @GetMapping("/mine")
     public ResponseEntity<List<MyPromptResponse>> mine(Authentication authentication) {
         return ResponseEntity.ok(promptLibraryService.getMyPrompts(authentication.getName()));
+    }
+
+    @GetMapping("/{promptId}/versions")
+    public ResponseEntity<List<PromptVersionResponse>> versions(@PathVariable UUID promptId, Authentication authentication) {
+        return ResponseEntity.ok(promptLibraryService.getPromptVersions(authentication.getName(), promptId));
+    }
+
+    @PostMapping("/{promptId}/versions")
+    public ResponseEntity<CreatePromptResponse> createVersion(
+            @PathVariable UUID promptId,
+            @Valid @RequestBody CreatePromptVersionRequest request,
+            Authentication authentication
+    ) {
+        return ResponseEntity.status(201).body(promptCreateService.createVersion(authentication.getName(), promptId, request));
     }
 
     @PostMapping

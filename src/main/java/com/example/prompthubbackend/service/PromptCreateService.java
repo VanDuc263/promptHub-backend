@@ -1,6 +1,7 @@
 package com.example.prompthubbackend.service;
 
 import com.example.prompthubbackend.dto.request.CreatePromptRequest;
+import com.example.prompthubbackend.dto.request.CreatePromptVersionRequest;
 import com.example.prompthubbackend.dto.response.CreatePromptResponse;
 import com.example.prompthubbackend.dto.response.PromptEditorResponse;
 import com.example.prompthubbackend.model.Prompt;
@@ -153,6 +154,37 @@ public class PromptCreateService {
         replaceTags(prompt, request.tags(), now);
         promptRepository.save(prompt);
         return new CreatePromptResponse(prompt.getId(), prompt.getTitle(), status.name(), "v" + version.getVersionNumber());
+    }
+
+    @Transactional
+    public CreatePromptResponse createVersion(String username, UUID promptId, CreatePromptVersionRequest request) {
+        User user = findUser(username);
+        Prompt prompt = promptRepository.findByIdForUpdate(promptId)
+                .filter(item -> item.getDeletedAt() == null)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Prompt not found"));
+        if (!Objects.equals(prompt.getAuthor().getId(), user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot create versions for this prompt");
+        }
+        PromptVersion source = currentVersion(prompt);
+        int nextVersion = promptVersionRepository.findFirstByPromptOrderByVersionNumberDesc(prompt)
+                .map(version -> version.getVersionNumber() + 1)
+                .orElse(1);
+        OffsetDateTime now = OffsetDateTime.now();
+        PromptVersion snapshot = promptVersionRepository.save(PromptVersion.builder()
+                .prompt(prompt)
+                .versionNumber(nextVersion)
+                .content(source.getContent())
+                .systemMessage(source.getSystemMessage())
+                .variables(source.getVariables())
+                .modelConfig(source.getModelConfig())
+                .changelog(request.changelog().trim())
+                .createdBy(user)
+                .createdAt(now)
+                .build());
+        prompt.setCurrentVersionId(snapshot.getId());
+        prompt.setUpdatedAt(now);
+        promptRepository.save(prompt);
+        return new CreatePromptResponse(prompt.getId(), prompt.getTitle(), prompt.getStatus().name(), "v" + nextVersion);
     }
 
     @Transactional

@@ -1,6 +1,7 @@
 package com.example.prompthubbackend.service;
 
 import com.example.prompthubbackend.dto.response.MyPromptResponse;
+import com.example.prompthubbackend.dto.response.PromptVersionResponse;
 import com.example.prompthubbackend.model.Prompt;
 import com.example.prompthubbackend.model.PromptVersion;
 import com.example.prompthubbackend.model.User;
@@ -18,6 +19,8 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.UUID;
 
 @Service
 public class PromptLibraryService {
@@ -49,6 +52,27 @@ public class PromptLibraryService {
                 .sorted(Comparator.comparing(Prompt::getUpdatedAt,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PromptVersionResponse> getPromptVersions(String username, UUID promptId) {
+        User user = userRepository.findByUsernameIgnoreCase(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+        Prompt prompt = promptRepository.findById(promptId)
+                .filter(item -> item.getDeletedAt() == null)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Prompt not found"));
+        if (!Objects.equals(prompt.getAuthor().getId(), user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot view these prompt versions");
+        }
+        return promptVersionRepository.findByPromptOrderByVersionNumberDesc(prompt).stream()
+                .map(version -> new PromptVersionResponse(
+                        version.getId(), "v" + version.getVersionNumber(),
+                        version.getChangelog() == null || version.getChangelog().isBlank() ? "No change notes" : version.getChangelog(),
+                        version.getCreatedBy().getDisplayName() == null || version.getCreatedBy().getDisplayName().isBlank()
+                                ? version.getCreatedBy().getUsername() : version.getCreatedBy().getDisplayName(),
+                        version.getCreatedAt(), Objects.equals(prompt.getCurrentVersionId(), version.getId()),
+                        version.getContent()))
                 .toList();
     }
 
