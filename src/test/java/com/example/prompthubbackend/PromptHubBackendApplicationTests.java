@@ -38,6 +38,27 @@ class PromptHubBackendApplicationTests {
     }
 
     @Test
+    void examplesBelongToTheSelectedPromptVersion() {
+        var reviewer = promptExploreService.getPublicPrompt(java.util.UUID.fromString("30000000-0000-0000-0000-000000000001"));
+        org.junit.jupiter.api.Assertions.assertEquals(2, reviewer.examples().size());
+        org.junit.jupiter.api.Assertions.assertEquals("review-validation", reviewer.examples().getFirst().id());
+        var designer = promptExploreService.getPublicPrompt(java.util.UUID.fromString("30000000-0000-0000-0000-000000000002"));
+        org.junit.jupiter.api.Assertions.assertEquals("ui-checkout", designer.examples().getFirst().id());
+        var image = promptExploreService.getPublicPrompt(java.util.UUID.fromString("30000000-0000-0000-0000-000000000006"));
+        org.junit.jupiter.api.Assertions.assertTrue(image.examples().isEmpty());
+    }
+
+    @Test
+    void documentationBelongsToTheSelectedPromptVersion() {
+        var reviewer = promptExploreService.getPublicPrompt(java.util.UUID.fromString("30000000-0000-0000-0000-000000000001"));
+        var designer = promptExploreService.getPublicPrompt(java.util.UUID.fromString("30000000-0000-0000-0000-000000000002"));
+        org.junit.jupiter.api.Assertions.assertEquals(5, reviewer.documentation().size());
+        org.junit.jupiter.api.Assertions.assertTrue(reviewer.documentation().getFirst().content().contains("Spring Boot"));
+        org.junit.jupiter.api.Assertions.assertTrue(designer.documentation().getFirst().content().contains("visual hierarchy"));
+        org.junit.jupiter.api.Assertions.assertTrue(reviewer.documentation().get(1).content().contains("\n"));
+    }
+
+    @Test
     @Transactional
     void promptCanBeCreatedWithJsonConfiguration() {
         var request = new CreatePromptRequest(

@@ -101,8 +101,50 @@ public class PromptExploreService {
                 Boolean.TRUE.equals(prompt.getIsFeatured()),
                 prompt.getPromptType() == null ? "text" : prompt.getPromptType(),
                 prompt.getInputPreviewUrl(),
-                prompt.getOutputPreviewUrl()
+                prompt.getOutputPreviewUrl(),
+                examples(version),
+                documentation(version)
         );
+    }
+
+    private List<ExplorePromptResponse.DocumentationSection> documentation(PromptVersion version) {
+        if (version == null || version.getDocumentation() == null) return List.of();
+        try {
+            JsonNode items = objectMapper.readTree(version.getDocumentation());
+            if (!items.isArray()) return List.of();
+            List<ExplorePromptResponse.DocumentationSection> sections = new ArrayList<>();
+            for (JsonNode item : items) {
+                String title = item.path("title").asText("").trim();
+                String content = item.path("content").asText("").trim();
+                if (!title.isBlank() && !content.isBlank()) {
+                    sections.add(new ExplorePromptResponse.DocumentationSection(title, normalizeNewlines(content)));
+                }
+            }
+            return sections;
+        } catch (Exception ignored) {
+            return List.of();
+        }
+    }
+
+    private List<ExplorePromptResponse.Example> examples(PromptVersion version) {
+        if (version == null || version.getExamples() == null) return List.of();
+        try {
+            JsonNode items = objectMapper.readTree(version.getExamples());
+            if (!items.isArray()) return List.of();
+            List<ExplorePromptResponse.Example> result = new ArrayList<>();
+            for (JsonNode item : items) {
+                String input = item.path("input").asText("");
+                String output = item.path("output").asText("");
+                if (input.isBlank() || output.isBlank()) continue;
+                result.add(new ExplorePromptResponse.Example(
+                        item.path("id").asText("example-" + (result.size() + 1)),
+                        item.path("title").asText("Example " + (result.size() + 1)),
+                        normalizeNewlines(input), normalizeNewlines(output)));
+            }
+            return result;
+        } catch (Exception ignored) {
+            return List.of();
+        }
     }
 
     private List<String> variableNames(PromptVersion version) {

@@ -42,6 +42,16 @@ public class PromptVersion {
     @ColumnTransformer(write = "?::jsonb")
     private String modelConfig;
 
+    @Column(name = "examples", nullable = false, columnDefinition = "jsonb")
+    @ColumnTransformer(write = "?::jsonb")
+    @Builder.Default
+    private String examples = "[]";
+
+    @Column(name = "documentation", nullable = false, columnDefinition = "jsonb")
+    @ColumnTransformer(write = "?::jsonb")
+    @Builder.Default
+    private String documentation = "[]";
+
     @Column(name = "changelog", length = 500)
     private String changelog;
 

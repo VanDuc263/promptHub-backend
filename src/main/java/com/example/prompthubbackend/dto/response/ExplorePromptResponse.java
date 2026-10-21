@@ -26,6 +26,10 @@ public record ExplorePromptResponse(
         boolean featured,
         String type,
         String inputPreviewUrl,
-        String outputPreviewUrl
+        String outputPreviewUrl,
+        List<Example> examples,
+        List<DocumentationSection> documentation
 ) {
+    public record Example(String id, String title, String input, String output) {}
+    public record DocumentationSection(String title, String content) {}
 }
