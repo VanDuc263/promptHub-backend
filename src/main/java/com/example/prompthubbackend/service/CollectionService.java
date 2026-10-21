@@ -46,6 +46,7 @@ public class CollectionService {
     private final CollectionInvitationRepository collectionInvitationRepository;
     private final CollectionMemberRepository collectionMemberRepository;
     private final MailService mailService;
+    private final com.example.prompthubbackend.repository.ActivityLogRepository activities;
 
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
@@ -57,7 +58,8 @@ public class CollectionService {
             PromptRepository promptRepository,
             CollectionInvitationRepository collectionInvitationRepository,
             CollectionMemberRepository collectionMemberRepository,
-            MailService mailService
+            MailService mailService,
+            com.example.prompthubbackend.repository.ActivityLogRepository activities
     ) {
         this.collectionRepository = collectionRepository;
         this.collectionPromptRepository = collectionPromptRepository;
@@ -66,6 +68,7 @@ public class CollectionService {
         this.collectionInvitationRepository = collectionInvitationRepository;
         this.collectionMemberRepository = collectionMemberRepository;
         this.mailService = mailService;
+        this.activities = activities;
     }
 
     @Transactional(readOnly = true)
@@ -150,6 +153,7 @@ public class CollectionService {
         Collection collection = invitation.getCollection();
         if (collection.getDeletedAt() != null) throw new ResponseStatusException(HttpStatus.GONE, "Collection is no longer available");
         if (!collectionMemberRepository.existsByCollectionAndUser(collection, invitation.getInviteeUser())) {
+            logActivity(collection, invitation.getInviteeUser(), "member_joined", null);
             collectionMemberRepository.save(CollectionMember.builder().collection(collection)
                     .user(invitation.getInviteeUser()).invitedBy(invitation.getInviter()).joinedAt(now).build());
         }
@@ -191,7 +195,9 @@ public class CollectionService {
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
-        return toResponse(collectionRepository.save(collection));
+        collectionRepository.save(collection);
+        logActivity(collection, owner, "created", collection.getName());
+        return toResponse(collection);
     }
 
     @Transactional
@@ -218,6 +224,7 @@ public class CollectionService {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to one or more prompts");
             }
             if (existingIds.add(promptId)) {
+                logActivity(collection, user, "prompt_added", prompt.getTitle());
                 collectionPromptRepository.save(CollectionPrompt.builder()
                         .collection(collection)
                         .prompt(prompt)
@@ -242,8 +249,33 @@ public class CollectionService {
         CollectionPrompt item = collectionPromptRepository.findByCollectionAndPrompt(collection, prompt)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Prompt is not in this collection"));
         collectionPromptRepository.delete(item);
+        logActivity(collection, user, "prompt_removed", prompt.getTitle());
         collection.setUpdatedAt(OffsetDateTime.now());
         collectionRepository.save(collection);
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.example.prompthubbackend.dto.response.CollectionActivityResponse> getActivity(String username, UUID collectionId, int page) {
+        if (page < 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Page must not be negative");
+        User user = findUser(username);
+        Collection collection = collectionRepository.findById(collectionId)
+                .filter(item -> item.getDeletedAt() == null)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Collection not found"));
+        if (!Objects.equals(collection.getOwner().getId(), user.getId())
+                && !collectionMemberRepository.existsByCollectionAndUser(collection, user)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to collection activity");
+        }
+        return activities.findByEntityTypeAndEntityIdOrderByCreatedAtDescIdDesc("collection", collectionId,
+                org.springframework.data.domain.PageRequest.of(page, 20)).stream().map(item ->
+                new com.example.prompthubbackend.dto.response.CollectionActivityResponse(item.getId(),
+                        item.getActor() == null ? "Former member" : firstNonBlank(item.getActor().getDisplayName(), item.getActor().getUsername()),
+                        item.getAction(), item.getEntityName(), item.getCreatedAt())).toList();
+    }
+
+    private void logActivity(Collection collection, User actor, String action, String subject) {
+        activities.save(com.example.prompthubbackend.model.ActivityLog.builder()
+                .actor(actor).entityType("collection").entityId(collection.getId())
+                .action(action).entityName(subject).createdAt(OffsetDateTime.now()).build());
     }
 
     private Collection findOwnedCollection(UUID collectionId, User owner) {

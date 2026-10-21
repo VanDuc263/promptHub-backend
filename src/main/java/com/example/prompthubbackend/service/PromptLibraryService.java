@@ -28,17 +28,20 @@ public class PromptLibraryService {
     private final PromptTagRepository promptTagRepository;
     private final PromptVersionRepository promptVersionRepository;
     private final UserRepository userRepository;
+    private final com.example.prompthubbackend.repository.ActivityLogRepository activityLogRepository;
 
     public PromptLibraryService(
             PromptRepository promptRepository,
             PromptTagRepository promptTagRepository,
             PromptVersionRepository promptVersionRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            com.example.prompthubbackend.repository.ActivityLogRepository activityLogRepository
     ) {
         this.promptRepository = promptRepository;
         this.promptTagRepository = promptTagRepository;
         this.promptVersionRepository = promptVersionRepository;
         this.userRepository = userRepository;
+        this.activityLogRepository = activityLogRepository;
     }
 
     @Transactional(readOnly = true)
@@ -73,6 +76,26 @@ public class PromptLibraryService {
                                 ? version.getCreatedBy().getUsername() : version.getCreatedBy().getDisplayName(),
                         version.getCreatedAt(), Objects.equals(prompt.getCurrentVersionId(), version.getId()),
                         version.getContent()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.example.prompthubbackend.dto.response.PromptActivityResponse> getPromptActivity(String username, UUID promptId, int page) {
+        User user = userRepository.findByUsernameIgnoreCase(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+        Prompt prompt = promptRepository.findById(promptId)
+                .filter(item -> item.getDeletedAt() == null)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Prompt not found"));
+        if (!Objects.equals(prompt.getAuthor().getId(), user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot view this prompt's activity");
+        }
+        if (page < 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Page must be non-negative");
+        return activityLogRepository.findByEntityTypeAndEntityIdOrderByCreatedAtDescIdDesc(
+                        "prompt", promptId, org.springframework.data.domain.PageRequest.of(page, 20)).stream()
+                .map(item -> new com.example.prompthubbackend.dto.response.PromptActivityResponse(
+                        item.getId(), item.getActor() == null ? "PromptHub"
+                                : firstNonBlank(item.getActor().getDisplayName(), item.getActor().getUsername()),
+                        item.getAction(), item.getCreatedAt(), item.getNewValues()))
                 .toList();
     }
 

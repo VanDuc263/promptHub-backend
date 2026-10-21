@@ -47,7 +47,7 @@ class PromptHubBackendApplicationTests {
                 List.of(new CreatePromptRequest.PromptVariableRequest(
                         "source_code", "Source code", "Long Text", true, "Paste code", List.of()
                 )),
-                "Initial version", false
+                "Initial version", false, "text", null, null
         );
         var created = promptCreateService.create("ducngo", request);
         assertNotNull(created.id());

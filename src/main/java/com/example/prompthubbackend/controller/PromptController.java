@@ -54,6 +54,14 @@ public class PromptController {
         return ResponseEntity.ok(promptLibraryService.getPromptVersions(authentication.getName(), promptId));
     }
 
+    @GetMapping("/{promptId}/activity")
+    public ResponseEntity<List<com.example.prompthubbackend.dto.response.PromptActivityResponse>> activity(
+            @PathVariable UUID promptId,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+            Authentication authentication) {
+        return ResponseEntity.ok(promptLibraryService.getPromptActivity(authentication.getName(), promptId, page));
+    }
+
     @PostMapping("/{promptId}/versions")
     public ResponseEntity<CreatePromptResponse> createVersion(
             @PathVariable UUID promptId,

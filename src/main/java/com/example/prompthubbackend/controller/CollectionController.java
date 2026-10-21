@@ -63,6 +63,15 @@ public class CollectionController {
         return ResponseEntity.status(201).body(collectionService.invite(authentication.getName(), collectionId, request));
     }
 
+    @GetMapping("/{collectionId}/activity")
+    public ResponseEntity<List<com.example.prompthubbackend.dto.response.CollectionActivityResponse>> activity(
+            @PathVariable UUID collectionId,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(collectionService.getActivity(authentication.getName(), collectionId, page));
+    }
+
     @GetMapping("/{collectionId}/members")
     public ResponseEntity<List<CollectionMemberResponse>> members(
             @PathVariable UUID collectionId,

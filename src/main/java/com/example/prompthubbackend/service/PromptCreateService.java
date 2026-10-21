@@ -47,11 +47,13 @@ public class PromptCreateService {
     private final TagRepository tagRepository;
     private final PromptTagRepository promptTagRepository;
     private final ObjectMapper objectMapper;
+    private final com.example.prompthubbackend.repository.ActivityLogRepository activityLogRepository;
 
     public PromptCreateService(UserRepository userRepository, WorkspaceRepository workspaceRepository,
                                WorkspaceMemberRepository workspaceMemberRepository, PromptRepository promptRepository,
                                PromptVersionRepository promptVersionRepository, TagRepository tagRepository,
-                               PromptTagRepository promptTagRepository, ObjectMapper objectMapper) {
+                               PromptTagRepository promptTagRepository, ObjectMapper objectMapper,
+                               com.example.prompthubbackend.repository.ActivityLogRepository activityLogRepository) {
         this.userRepository = userRepository;
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
@@ -60,6 +62,7 @@ public class PromptCreateService {
         this.tagRepository = tagRepository;
         this.promptTagRepository = promptTagRepository;
         this.objectMapper = objectMapper;
+        this.activityLogRepository = activityLogRepository;
     }
 
     @Transactional
@@ -105,6 +108,7 @@ public class PromptCreateService {
                 promptTagRepository.save(PromptTag.builder().prompt(prompt).tag(tag).createdAt(now).build());
             }
         }
+        logActivity(prompt, user, "created", Map.of("version", "v1", "status", status.name()));
         return new CreatePromptResponse(prompt.getId(), prompt.getTitle(), status.name(), "v1");
     }
 
@@ -153,6 +157,7 @@ public class PromptCreateService {
         promptVersionRepository.save(version);
         replaceTags(prompt, request.tags(), now);
         promptRepository.save(prompt);
+        logActivity(prompt, user, "updated", Map.of("version", "v" + version.getVersionNumber(), "status", status.name()));
         return new CreatePromptResponse(prompt.getId(), prompt.getTitle(), status.name(), "v" + version.getVersionNumber());
     }
 
@@ -184,6 +189,7 @@ public class PromptCreateService {
         prompt.setCurrentVersionId(snapshot.getId());
         prompt.setUpdatedAt(now);
         promptRepository.save(prompt);
+        logActivity(prompt, user, "version_created", Map.of("version", "v" + nextVersion, "note", request.changelog().trim()));
         return new CreatePromptResponse(prompt.getId(), prompt.getTitle(), prompt.getStatus().name(), "v" + nextVersion);
     }
 
@@ -195,9 +201,19 @@ public class PromptCreateService {
         if (parsed != PromptVisibility.PRIVATE && parsed != PromptVisibility.PUBLIC) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Visibility must be Public or Private");
         }
+        if (prompt.getVisibility() == parsed) return;
+        String previous = prompt.getVisibility().name();
         prompt.setVisibility(parsed);
         prompt.setUpdatedAt(OffsetDateTime.now());
         promptRepository.save(prompt);
+        logActivity(prompt, user, "visibility_changed", Map.of("from", previous, "to", parsed.name()));
+    }
+
+    private void logActivity(Prompt prompt, User actor, String action, Map<String, String> details) {
+        activityLogRepository.save(com.example.prompthubbackend.model.ActivityLog.builder()
+                .workspace(prompt.getWorkspace()).actor(actor).action(action).entityType("prompt")
+                .entityId(prompt.getId()).entityName(prompt.getTitle()).newValues(toJson(details))
+                .createdAt(OffsetDateTime.now()).build());
     }
 
     private User findUser(String username) {

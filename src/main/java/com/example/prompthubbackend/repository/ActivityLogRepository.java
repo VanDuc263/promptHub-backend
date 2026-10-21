@@ -11,6 +11,7 @@ import java.util.UUID;
 
 @Repository
 public interface ActivityLogRepository extends JpaRepository<ActivityLog, UUID> {
+    List<ActivityLog> findByEntityTypeAndEntityIdOrderByCreatedAtDescIdDesc(String entityType, UUID entityId, org.springframework.data.domain.Pageable pageable);
     List<ActivityLog> findByWorkspace(Workspace workspace);
 
     List<ActivityLog> findTop5ByWorkspaceOrderByCreatedAtDesc(Workspace workspace);
