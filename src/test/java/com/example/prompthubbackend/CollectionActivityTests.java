@@ -3,6 +3,9 @@ package com.example.prompthubbackend;
 import com.example.prompthubbackend.model.ActivityLog;
 import com.example.prompthubbackend.model.Collection;
 import com.example.prompthubbackend.model.User;
+import com.example.prompthubbackend.model.Workspace;
+import com.example.prompthubbackend.model.WorkspaceMember;
+import com.example.prompthubbackend.model.enums.WorkspaceRole;
 import com.example.prompthubbackend.repository.*;
 import com.example.prompthubbackend.service.CollectionService;
 import com.example.prompthubbackend.service.MailService;
@@ -25,8 +28,11 @@ class CollectionActivityTests {
     private final UserRepository users = mock(UserRepository.class);
     private final CollectionMemberRepository members = mock(CollectionMemberRepository.class);
     private final ActivityLogRepository activities = mock(ActivityLogRepository.class);
+    private final WorkspaceRepository workspaces = mock(WorkspaceRepository.class);
+    private final WorkspaceMemberRepository workspaceMembers = mock(WorkspaceMemberRepository.class);
     private final CollectionService service = new CollectionService(collections, mock(CollectionPromptRepository.class),
-            users, mock(PromptRepository.class), mock(CollectionInvitationRepository.class), members, mock(MailService.class), activities);
+            users, mock(PromptRepository.class), mock(CollectionInvitationRepository.class), members, mock(MailService.class), activities,
+            workspaces, workspaceMembers);
     private final User user = User.builder().id(UUID.randomUUID()).username("reader").build();
     private final Collection collection = Collection.builder().id(UUID.randomUUID()).owner(user).build();
 
@@ -37,6 +43,29 @@ class CollectionActivityTests {
         when(activities.findByEntityTypeAndEntityIdOrderByCreatedAtDescIdDesc("collection", collection.getId(), PageRequest.of(1, 20)))
                 .thenReturn(List.of(ActivityLog.builder().id(UUID.randomUUID()).actor(user).action("prompt_removed")
                         .entityName("Review code").createdAt(OffsetDateTime.now()).build()));
+    }
+
+    @Test
+    void listUsesSelectedWorkspaceInsteadOfAllOwnedCollections() {
+        var workspace = Workspace.builder().id(UUID.randomUUID()).build();
+        when(workspaces.findById(workspace.getId())).thenReturn(Optional.of(workspace));
+        when(workspaceMembers.findByWorkspaceAndUser(workspace, user)).thenReturn(Optional.of(
+                WorkspaceMember.builder().workspace(workspace).user(user).role(WorkspaceRole.EDITOR).build()));
+        when(collections.findByWorkspaceAndDeletedAtIsNullOrderByUpdatedAtDesc(workspace)).thenReturn(List.of());
+        assertTrue(service.getMine("reader", workspace.getId()).isEmpty());
+        verify(collections).findByWorkspaceAndDeletedAtIsNullOrderByUpdatedAtDesc(workspace);
+        verify(collections, never()).findByOwnerAndDeletedAtIsNullOrderByUpdatedAtDesc(any());
+    }
+
+    @Test
+    void listRejectsNonMemberAndMissingWorkspace() {
+        var workspace = Workspace.builder().id(UUID.randomUUID()).build();
+        when(workspaces.findById(workspace.getId())).thenReturn(Optional.of(workspace));
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
+                () -> service.getMine("reader", workspace.getId())).getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                () -> service.getMine("reader", null)).getStatusCode());
+        verify(collections, never()).findByWorkspaceAndDeletedAtIsNullOrderByUpdatedAtDesc(any());
     }
 
     @Test

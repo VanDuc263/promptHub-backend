@@ -32,8 +32,9 @@ public class CollectionController {
     }
 
     @GetMapping
-    public ResponseEntity<List<CollectionResponse>> mine(Authentication authentication) {
-        return ResponseEntity.ok(collectionService.getMine(authentication.getName()));
+    public ResponseEntity<List<CollectionResponse>> mine(Authentication authentication,
+            @org.springframework.web.bind.annotation.RequestParam UUID workspaceId) {
+        return ResponseEntity.ok(collectionService.getMine(authentication.getName(), workspaceId));
     }
 
     @GetMapping("/public")

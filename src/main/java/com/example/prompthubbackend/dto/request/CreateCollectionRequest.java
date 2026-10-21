@@ -11,6 +11,7 @@ public record CreateCollectionRequest(
         @Size(max = 500) String description,
         @Pattern(regexp = "^/collection-covers/[a-z0-9-]+\\.(svg|png|webp|jpg|jpeg)$", message = "must be a PromptHub system cover")
         String coverImageUrl,
-        @NotNull CollectionVisibility visibility
+        @NotNull CollectionVisibility visibility,
+        java.util.UUID workspaceId
 ) {
 }

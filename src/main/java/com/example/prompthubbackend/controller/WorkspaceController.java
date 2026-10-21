@@ -82,6 +82,29 @@ public class WorkspaceController {
         return ResponseEntity.ok(workspaceService.acceptInvitation(request.token()));
     }
 
+    @PostMapping("/{workspaceId}/collections")
+    public ResponseEntity<Void> createCollection(@PathVariable UUID workspaceId,
+            @Valid @RequestBody com.example.prompthubbackend.dto.request.CreateCollectionRequest request,
+            Authentication authentication) {
+        workspaceService.saveCollection(authentication.getName(), workspaceId, null, request);
+        return ResponseEntity.status(201).build();
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/{workspaceId}/collections/{collectionId}")
+    public ResponseEntity<Void> updateCollection(@PathVariable UUID workspaceId, @PathVariable UUID collectionId,
+            @Valid @RequestBody com.example.prompthubbackend.dto.request.CreateCollectionRequest request,
+            Authentication authentication) {
+        workspaceService.saveCollection(authentication.getName(), workspaceId, collectionId, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{workspaceId}/collections/{collectionId}")
+    public ResponseEntity<Void> deleteCollection(@PathVariable UUID workspaceId, @PathVariable UUID collectionId,
+            Authentication authentication) {
+        workspaceService.deleteCollection(authentication.getName(), workspaceId, collectionId);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{workspaceId}/collections")
     public ResponseEntity<List<WorkspaceCollectionResponse>> collections(@PathVariable UUID workspaceId,
                                                                          Authentication authentication) {

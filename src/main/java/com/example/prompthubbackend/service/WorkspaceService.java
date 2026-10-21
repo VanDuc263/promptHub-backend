@@ -301,6 +301,63 @@ public class WorkspaceService {
                 user.getLastLoginAt(), user.getId().equals(currentUser.getId()));
     }
 
+    @Transactional
+    public void saveCollection(String username, UUID workspaceId, UUID collectionId,
+            com.example.prompthubbackend.dto.request.CreateCollectionRequest request) {
+        User user = requireUser(username);
+        Workspace workspace = requireCollectionWorkspace(workspaceId, user);
+        var collection = collectionId == null ? new com.example.prompthubbackend.model.Collection()
+                : requireCollection(workspace, collectionId);
+        if (collectionId == null) {
+            collection.setOwner(user);
+            collection.setWorkspace(workspace);
+            collection.setSlug("collection-" + UUID.randomUUID());
+            collection.setPromptCount(0);
+            collection.setCreatedAt(OffsetDateTime.now());
+        }
+        collection.setName(request.name().trim());
+        collection.setDescription(request.description() == null ? null : request.description().trim());
+        collection.setVisibility(request.visibility());
+        collection.setCoverImageUrl(request.coverImageUrl());
+        collection.setUpdatedAt(OffsetDateTime.now());
+        collectionRepository.save(collection);
+        logCollection(workspace, user, collection, collectionId == null ? "COLLECTION_CREATED" : "COLLECTION_UPDATED");
+    }
+
+    @Transactional
+    public void deleteCollection(String username, UUID workspaceId, UUID collectionId) {
+        User user = requireUser(username);
+        Workspace workspace = requireCollectionWorkspace(workspaceId, user);
+        var collection = requireCollection(workspace, collectionId);
+        collection.setDeletedAt(OffsetDateTime.now());
+        collection.setUpdatedAt(OffsetDateTime.now());
+        collectionRepository.save(collection);
+        logCollection(workspace, user, collection, "COLLECTION_DELETED");
+    }
+
+    private Workspace requireCollectionWorkspace(UUID id, User user) {
+        Workspace workspace = requireWorkspace(id);
+        var member = workspaceMemberRepository.findByWorkspaceAndUser(workspace, user)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Workspace not found"));
+        if (member.getRole() == WorkspaceRole.VIEWER)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Viewers cannot manage collections");
+        return workspace;
+    }
+
+    private com.example.prompthubbackend.model.Collection requireCollection(Workspace workspace, UUID id) {
+        return collectionRepository.findById(id)
+                .filter(item -> item.getDeletedAt() == null && item.getWorkspace() != null
+                        && item.getWorkspace().getId().equals(workspace.getId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Collection not found"));
+    }
+
+    private void logCollection(Workspace workspace, User user,
+            com.example.prompthubbackend.model.Collection collection, String action) {
+        activityLogRepository.save(ActivityLog.builder().workspace(workspace).actor(user)
+                .entityType("collection").entityId(collection.getId()).entityName(collection.getName())
+                .action(action).createdAt(OffsetDateTime.now()).build());
+    }
+
     private Workspace requireManagedWorkspace(UUID workspaceId, User user) {
         Workspace workspace = requireWorkspace(workspaceId);
         WorkspaceMember membership = workspaceMemberRepository.findByWorkspaceAndUser(workspace, user)

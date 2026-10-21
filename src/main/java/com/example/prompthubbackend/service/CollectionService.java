@@ -46,6 +46,8 @@ public class CollectionService {
     private final CollectionInvitationRepository collectionInvitationRepository;
     private final CollectionMemberRepository collectionMemberRepository;
     private final MailService mailService;
+    private final com.example.prompthubbackend.repository.WorkspaceRepository workspaces;
+    private final com.example.prompthubbackend.repository.WorkspaceMemberRepository workspaceMembers;
     private final com.example.prompthubbackend.repository.ActivityLogRepository activities;
 
     @Value("${app.frontend-url:http://localhost:5173}")
@@ -59,7 +61,9 @@ public class CollectionService {
             CollectionInvitationRepository collectionInvitationRepository,
             CollectionMemberRepository collectionMemberRepository,
             MailService mailService,
-            com.example.prompthubbackend.repository.ActivityLogRepository activities
+            com.example.prompthubbackend.repository.ActivityLogRepository activities,
+            com.example.prompthubbackend.repository.WorkspaceRepository workspaces,
+            com.example.prompthubbackend.repository.WorkspaceMemberRepository workspaceMembers
     ) {
         this.collectionRepository = collectionRepository;
         this.collectionPromptRepository = collectionPromptRepository;
@@ -69,19 +73,15 @@ public class CollectionService {
         this.collectionMemberRepository = collectionMemberRepository;
         this.mailService = mailService;
         this.activities = activities;
+        this.workspaces = workspaces;
+        this.workspaceMembers = workspaceMembers;
     }
 
     @Transactional(readOnly = true)
-    public List<CollectionResponse> getMine(String username) {
-        User owner = findUser(username);
-        java.util.LinkedHashMap<UUID, Collection> accessible = new java.util.LinkedHashMap<>();
-        collectionRepository.findByOwnerAndDeletedAtIsNullOrderByUpdatedAtDesc(owner)
-                .forEach(collection -> accessible.put(collection.getId(), collection));
-        collectionMemberRepository.findByUserOrderByJoinedAtDesc(owner).stream()
-                .map(CollectionMember::getCollection)
-                .filter(collection -> collection.getDeletedAt() == null)
-                .forEach(collection -> accessible.putIfAbsent(collection.getId(), collection));
-        return accessible.values().stream()
+    public List<CollectionResponse> getMine(String username, UUID workspaceId) {
+        User user = findUser(username);
+        var workspace = requireWorkspace(workspaceId, user, false);
+        return collectionRepository.findByWorkspaceAndDeletedAtIsNullOrderByUpdatedAtDesc(workspace).stream()
                 .map(this::toResponse)
                 .toList();
     }
@@ -183,9 +183,11 @@ public class CollectionService {
     @Transactional
     public CollectionResponse create(String username, CreateCollectionRequest request) {
         User owner = findUser(username);
+        var workspace = requireWorkspace(request.workspaceId(), owner, true);
         OffsetDateTime now = OffsetDateTime.now();
         Collection collection = Collection.builder()
                 .owner(owner)
+                .workspace(workspace)
                 .name(request.name().trim())
                 .slug(uniqueSlug(owner, request.name()))
                 .description(normalizeOptional(request.description()))
@@ -274,7 +276,7 @@ public class CollectionService {
 
     private void logActivity(Collection collection, User actor, String action, String subject) {
         activities.save(com.example.prompthubbackend.model.ActivityLog.builder()
-                .actor(actor).entityType("collection").entityId(collection.getId())
+                .workspace(collection.getWorkspace()).actor(actor).entityType("collection").entityId(collection.getId())
                 .action(action).entityName(subject).createdAt(OffsetDateTime.now()).build());
     }
 
@@ -293,6 +295,17 @@ public class CollectionService {
         if (Objects.equals(prompt.getAuthor().getId(), user.getId())) return true;
         return prompt.getStatus() == PromptStatus.PUBLISHED &&
                 (prompt.getVisibility() == PromptVisibility.PUBLIC || prompt.getVisibility() == PromptVisibility.UNLISTED);
+    }
+
+    private com.example.prompthubbackend.model.Workspace requireWorkspace(UUID workspaceId, User user, boolean writing) {
+        if (workspaceId == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "workspaceId is required");
+        var workspace = workspaces.findById(workspaceId).filter(item -> item.getDeletedAt() == null)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Workspace not found"));
+        var member = workspaceMembers.findByWorkspaceAndUser(workspace, user)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Workspace not found"));
+        if (writing && member.getRole() == com.example.prompthubbackend.model.enums.WorkspaceRole.VIEWER)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Viewers cannot create collections");
+        return workspace;
     }
 
     private User findUser(String username) {
@@ -330,6 +343,7 @@ public class CollectionService {
                 .toList();
         return new CollectionResponse(
                 collection.getId(),
+                collection.getWorkspace() == null ? null : collection.getWorkspace().getId(),
                 collection.getName(),
                 firstNonBlank(collection.getDescription(), "No description yet."),
                 collection.getCoverImageUrl(),

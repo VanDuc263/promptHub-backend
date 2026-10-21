@@ -6,6 +6,7 @@ import java.util.UUID;
 
 public record CollectionResponse(
         UUID id,
+        UUID workspaceId,
         String name,
         String description,
         String coverImageUrl,
