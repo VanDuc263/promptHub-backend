@@ -21,6 +21,9 @@ public class ActivityLog {
     @Column(columnDefinition = "uuid")
     private UUID id;
 
+    @Column(name = "history_hidden", nullable = false)
+    private boolean historyHidden;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "workspace_id")
     private Workspace workspace;

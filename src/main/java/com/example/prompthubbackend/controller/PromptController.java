@@ -54,6 +54,11 @@ public class PromptController {
         return ResponseEntity.ok(promptLibraryService.getPromptVersions(authentication.getName(), promptId));
     }
 
+    @GetMapping("/{promptId}/public-versions")
+    public ResponseEntity<List<com.example.prompthubbackend.dto.response.PublicPromptVersionResponse>> publicVersions(@PathVariable UUID promptId) {
+        return ResponseEntity.ok(promptExploreService.getPublicVersions(promptId));
+    }
+
     @GetMapping("/{promptId}/activity")
     public ResponseEntity<List<com.example.prompthubbackend.dto.response.PromptActivityResponse>> activity(
             @PathVariable UUID promptId,

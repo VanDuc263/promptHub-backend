@@ -66,6 +66,35 @@ public class PromptExploreService {
         return toResponse(prompt);
     }
 
+    @Transactional(readOnly = true)
+    public List<com.example.prompthubbackend.dto.response.PublicPromptVersionResponse> getPublicVersions(java.util.UUID promptId) {
+        Prompt prompt = promptRepository.findById(promptId)
+                .filter(item -> item.getDeletedAt() == null && item.getVisibility() == PromptVisibility.PUBLIC
+                        && item.getStatus() == PromptStatus.PUBLISHED)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Prompt not found"));
+        PromptVersion current = prompt.getCurrentVersionId() == null ? null
+                : promptVersionRepository.findById(prompt.getCurrentVersionId())
+                    .filter(item -> item.getPrompt().getId().equals(promptId)).orElse(null);
+        if (current == null) return List.of();
+        return promptVersionRepository.findByPromptOrderByVersionNumberDesc(prompt).stream()
+                .filter(item -> item.getVersionNumber() <= current.getVersionNumber())
+                .map(item -> new com.example.prompthubbackend.dto.response.PublicPromptVersionResponse(
+                        item.getId(), "v" + item.getVersionNumber(), firstNonBlank(item.getChangelog(), "No changelog provided."),
+                        item.getCreatedBy() == null ? "Former member" : firstNonBlank(item.getCreatedBy().getDisplayName(), item.getCreatedBy().getUsername(), "Former member"),
+                        item.getCreatedAt(), item.getId().equals(current.getId()), normalizeNewlines(item.getContent()),
+                        normalizeNewlines(item.getSystemMessage()), configuration(item.getVariables(), true),
+                        configuration(item.getModelConfig(), false), examples(item), documentation(item)))
+                .toList();
+    }
+
+    private JsonNode configuration(String value, boolean array) {
+        try {
+            JsonNode node = objectMapper.readTree(value == null ? "null" : value);
+            if (array ? node.isArray() : node.isObject()) return node;
+        } catch (Exception ignored) {}
+        return array ? objectMapper.createArrayNode() : objectMapper.createObjectNode();
+    }
+
     private ExplorePromptResponse toResponse(Prompt prompt) {
         List<String> tags = promptTagRepository.findByPrompt(prompt).stream()
                 .map(promptTag -> promptTag.getTag().getName())

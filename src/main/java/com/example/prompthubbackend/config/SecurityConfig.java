@@ -32,6 +32,7 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/prompts/explore").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/prompts/*/public-versions").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/collections/public").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/collections/public/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/collections/invitations/accept").permitAll()
